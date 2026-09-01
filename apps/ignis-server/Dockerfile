@@ -68,7 +68,7 @@ ENV PGID=1000
 
 EXPOSE 8080
 
-# VOLUME /vaults
-# VOLUME /app/obsidian-app
+VOLUME /vaults
+VOLUME /app/obsidian-app
 
 ENTRYPOINT ["/app/apps/ignis-server/scripts/entrypoint.sh"]
