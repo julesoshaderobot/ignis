@@ -1,6 +1,6 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "apps/ignis-server/Dockerfile_railway"
+dockerfilePath = "apps/ignis-server/Dockerfile"
 buildContext = "."
 
 [deploy]
