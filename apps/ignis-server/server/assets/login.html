@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: #f5f5f5; color: #222; display: flex; align-items: center; justify-content: center; }
+.login-card { background: #fff; padding: 32px 28px; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); width: 320px; max-width: calc(100% - 32px); }
+h1 { font-size: 20px; margin-bottom: 20px; text-align: center; }
+.field { margin-bottom: 14px; }
+input[type="password"] { width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; }
+input[type="password"]:focus { outline: none; border-color: #888; }
+.remember { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #555; cursor: pointer; user-select: none; }
+.remember input { cursor: pointer; }
+button { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; background: #fff; font-size: 14px; cursor: pointer; margin-top: 16px; }
+button:hover:not(:disabled) { background: #efefef; }
+button:disabled { cursor: not-allowed; opacity: 0.6; }
+.status { margin-top: 12px; font-size: 13px; color: #888; text-align: center; min-height: 18px; }
+.status.error { color: #c00; }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <h1>登录</h1>
+  <div class="field">
+    <input id="token-input" type="password" placeholder="Token" autofocus>
+  </div>
+  <label class="remember">
+    <input id="remember-input" type="checkbox"> 记住密码
+  </label>
+  <button id="login-btn">登录</button>
+  <div id="status" class="status"></div>
+</div>
+<script>
+const TOKEN_SS_KEY = "note_token";
+const TOKEN_LS_KEY = "note_token_remembered";
+
+function setStatus(msg, isError) {
+  const el = document.getElementById("status");
+  el.textContent = msg;
+  el.className = "status" + (isError ? " error" : "");
+}
+
+function setLoading(loading) {
+  document.getElementById("token-input").disabled = loading;
+  document.getElementById("remember-input").disabled = loading;
+  document.getElementById("login-btn").disabled = loading;
+}
+
+
+async function verifyToken(token) {
+  const resp = await fetch("/api/fs/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const result = await resp.json();
+  if (!resp.ok || !result.ok) throw new Error(result.error || "验证失败");
+  return result;
+}
+function saveToken(rawToken, remember) {
+  if (remember) {
+    localStorage.setItem(TOKEN_LS_KEY, token);
+    sessionStorage.setItem(TOKEN_SS_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_LS_KEY);
+    sessionStorage.setItem(TOKEN_SS_KEY, token);
+  }
+}
+
+function getRememberedToken() {
+  return localStorage.getItem(TOKEN_LS_KEY) || "";
+}
+
+async function doLogin(autoLogin = false) {
+  const tokenInput = document.getElementById("token-input");
+  const rememberInput = document.getElementById("remember-input");
+  const rawToken = tokenInput.value.trim();
+  if (!rawToken) {
+    setStatus("请输入 Token", true);
+    tokenInput.focus();
+    return;
+  }
+  setLoading(true);
+  setStatus(autoLogin ? "自动登录中..." : "登录中...");
+  try {
+    await verifyToken(rawToken);
+    saveToken(rawToken, rememberInput.checked);
+    setStatus("登录成功, 跳转中...");
+    setTimeout(() => { window.location.href = "/"; }, 200);
+  } catch (e) {
+    setStatus("登录失败: " + e.message, true);
+    if (autoLogin) {
+      localStorage.removeItem(TOKEN_LS_KEY);
+    }
+  } finally {
+    setLoading(false);
+  }
+}
+
+document.getElementById("login-btn").addEventListener("click", () => doLogin(false));
+document.getElementById("token-input").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") doLogin(false);
+});
+
+(async () => {
+  const remembered = getRememberedToken();
+  if (remembered) {
+    const tokenInput = document.getElementById("token-input");
+    const rememberInput = document.getElementById("remember-input");
+    tokenInput.value = remembered;
+    rememberInput.checked = true;
+    await doLogin(true);
+  }
+})();
+</script>
+</body>
+</html>
