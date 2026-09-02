@@ -41,6 +41,16 @@
   <div id="ignis-status-label">Loading Obsidian...</div>
 </div>
 <!-- Ignis shims: must run before any Obsidian code. -->
+<script>
+(function () {
+  var TOKEN_SS_KEY = "note_token";
+  var TOKEN_LS_KEY = "note_token_remembered";
+  var token = sessionStorage.getItem(TOKEN_SS_KEY) || localStorage.getItem(TOKEN_LS_KEY) || "";
+  if (!token) {
+    window.location.replace("/assets/login.html");
+  }
+})();
+</script>
 <script type="text/javascript" src="__SHIM_LOADER_SRC__"></script>
 <script type="text/javascript" src="__IGNIS_UI_SRC__"></script>
 <!-- Obsidian scripts injected dynamically to avoid touching their files. -->
