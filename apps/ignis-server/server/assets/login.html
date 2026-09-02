@@ -63,11 +63,11 @@ async function verifyToken(token) {
 }
 function saveToken(rawToken, remember) {
   if (remember) {
-    localStorage.setItem(TOKEN_LS_KEY, token);
-    sessionStorage.setItem(TOKEN_SS_KEY, token);
+    localStorage.setItem(TOKEN_LS_KEY, rawToken);
+    sessionStorage.setItem(TOKEN_SS_KEY, rawToken);
   } else {
     localStorage.removeItem(TOKEN_LS_KEY);
-    sessionStorage.setItem(TOKEN_SS_KEY, token);
+    sessionStorage.setItem(TOKEN_SS_KEY, rawToken);
   }
 }
 
