@@ -167,9 +167,10 @@ function selectPrefetchTargets(tree, totalBudget) {
 }
 
 async function fetchBatch(vaultId, paths) {
+  const token = sessionStorage.getItem("note_token") || localStorage.getItem("note_token_remembered") || "";
   const res = await fetch("/api/fs/batch-read", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...(token ? { "X-Token": token } : {}) },
     body: JSON.stringify({ vault: vaultId, paths }),
   });
 
