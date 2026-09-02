@@ -61,6 +61,8 @@ function fetchBootstrap() {
       "/api/bootstrap?vault=" + encodeURIComponent(window.__currentVaultId),
       false,
     );
+    const _bootstrapToken = sessionStorage.getItem("note_token") || localStorage.getItem("note_token_remembered") || "";
+    if (_bootstrapToken) xhr.setRequestHeader("X-Token", _bootstrapToken);
     xhr.send();
 
     if (xhr.status === 200) {
@@ -137,6 +139,8 @@ function initMetadataCacheFallback() {
     const xhr = new XMLHttpRequest();
 
     xhr.open("GET", "/api/fs/tree" + vaultParam, false);
+    const _treeToken = sessionStorage.getItem("note_token") || localStorage.getItem("note_token_remembered") || "";
+    if (_treeToken) xhr.setRequestHeader("X-Token", _treeToken);
     xhr.send();
 
     if (xhr.status === 200) {
