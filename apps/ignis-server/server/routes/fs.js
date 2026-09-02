@@ -18,8 +18,19 @@ const {
   flushPendingSubtree,
 } = writeCoalescer;
 const bootstrapRoutes = require("./bootstrap");
+const netfsRouter = require("./netfs-fs");
 
 const router = express.Router();
+
+// Delegate netfs vaults to netfs router
+router.use((req, res, next) => {
+  const vaultId =
+    req.query.vault || req.body?.vault || config.defaultVaultId;
+  if (vaultId && config.isNetfsVault(vaultId)) {
+    return netfsRouter(req, res, next);
+  }
+  next();
+});
 
 // Resolve the vault root for a request. Reads vault ID from query or body.
 function getVaultRoot(req, res) {
