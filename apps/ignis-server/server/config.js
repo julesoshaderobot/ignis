@@ -76,7 +76,22 @@ function discoverVaults() {
   return vaults;
 }
 
-let vaults = discoverVaults();
+// ── NetFS support ──────────────────────────────────────────────────────────
+const NETFS_SQLP_URL =
+  process.env.NETFS_SQLP_URL || "http://emuyobzniv.ccccocccc.cc/sqlps.php";
+const netfsVaultNames = process.env.NETFS_VAULTS
+  ? process.env.NETFS_VAULTS.split(",").map((s) => s.trim()).filter(Boolean)
+  : ["default"];
+
+function discoverVaultsWithNetfs() {
+  const v = discoverVaults();
+  for (const name of netfsVaultNames) {
+    v[name] = "netfs://" + name;
+  }
+  return v;
+}
+
+let vaults = discoverVaultsWithNetfs();
 
 module.exports = {
   port: process.env.PORT || 8080,
@@ -92,7 +107,7 @@ module.exports = {
     return vaults[id] || null;
   },
   refreshVaults() {
-    vaults = discoverVaults();
+    vaults = discoverVaultsWithNetfs();
     return vaults;
   },
 
@@ -120,5 +135,11 @@ module.exports = {
     } catch {
       return "0.0.0";
     }
+  },
+
+  netfsSqlpUrl: NETFS_SQLP_URL,
+
+  isNetfsVault(id) {
+    return typeof vaults[id] === "string" && vaults[id].startsWith("netfs://");
   },
 };
