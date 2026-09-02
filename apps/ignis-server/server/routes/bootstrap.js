@@ -102,6 +102,31 @@ async function walkTree(rootPath) {
   return { tree, dirMtimes };
 }
 
+async function buildNetfsTree(vaultId, token) {
+  const { sqlp } = require("./netfs-client");
+  const prefix = "/ignis/" + vaultId + "/";
+  console.log(`[buildNetfsTree] vaultId=${vaultId} token_len=${(token||"").length} token_prefix=${(token||"").slice(0,6)}`);
+  const result = await sqlp(
+    "SELECT name, mtime, CHAR_LENGTH(content) as len FROM t_file WHERE name LIKE ?",
+    [prefix + "%"],
+    token,
+  );
+  const rows = result.data || [];
+  const tree = {};
+  for (const row of rows) {
+    const relPath = row.name.slice(prefix.length);
+    if (!relPath) continue;
+    const size = Math.floor(((row.len || 0) * 3) / 4);
+    tree[relPath] = { type: "file", size, mtime: (row.mtime || 0) * 1000 };
+    const parts = relPath.split("/");
+    for (let i = 1; i < parts.length; i++) {
+      const dirPath = parts.slice(0, i).join("/");
+      if (!tree[dirPath]) tree[dirPath] = { type: "directory" };
+    }
+  }
+  return tree;
+}
+
 function buildVaultInfo(vaultId, vaultPath) {
   return {
     id: vaultId,
@@ -139,11 +164,52 @@ async function dirMtimesUnchanged(vaultPath, dirMtimes) {
   return checks.every(Boolean);
 }
 
-async function buildEntry(vaultId) {
+async function buildEntry(vaultId, token) {
   const vaultPath = config.getVaultPath(vaultId);
 
   if (!vaultPath) {
     return null;
+  }
+
+  // ── NetFS vault: build tree from SQL, skip local fs ──
+  if (config.isNetfsVault(vaultId)) {
+    const cached = cache.get(vaultId);
+    if (cached) return cached;
+
+    const t0 = Date.now();
+    const etag = '"' + bootNonce + "-" + ++revisionCounter + '"';
+    const vault = buildVaultInfo(vaultId, vaultPath);
+    const tree = await buildNetfsTree(vaultId, token);
+
+    const response = {
+      vault,
+      vaultList: buildVaultList(),
+      tree,
+      treeRevision: etag,
+      plugins: config.demoMode ? [] : getDiscoveredPlugins(),
+      virtualPlugins: getVirtualPluginsForVault(vaultId, getVersion()),
+      settings: {
+        contentCacheBytes: settings.get("contentCacheBytes"),
+        inputCacheBytes: settings.get("inputCacheBytes"),
+        inputCacheTtlMs: settings.get("inputCacheTtlMs"),
+        directFetchHosts: settings.get("directFetchHosts"),
+      },
+    };
+
+    const jsonBuf = Buffer.from(JSON.stringify(response));
+    let compressed = {};
+    try {
+      compressed = await preCompress(jsonBuf);
+    } catch (e) {
+      console.warn("[bootstrap] precompression failed:", e.message);
+    }
+
+    const entry = { response, dirMtimes: {}, compressed, etag };
+    cache.set(vaultId, entry);
+    console.log(
+      `[bootstrap] netfs vault=${vaultId} build files=${Object.keys(tree).filter((k) => tree[k].type === "file").length} time=${Date.now() - t0}ms`,
+    );
+    return entry;
   }
 
   const cached = cache.get(vaultId);
@@ -162,7 +228,6 @@ async function buildEntry(vaultId) {
     vaultList: buildVaultList(),
     tree,
     treeRevision: etag,
-    // In demo mode, hide server-side plugins from the client.
     plugins: config.demoMode ? [] : getDiscoveredPlugins(),
     virtualPlugins: getVirtualPluginsForVault(vaultId, getVersion()),
     settings: {
@@ -198,12 +263,12 @@ async function buildEntry(vaultId) {
   return entry;
 }
 
-async function getOrBuild(vaultId) {
+async function getOrBuild(vaultId, token) {
   if (pendingBuilds.has(vaultId)) {
     return pendingBuilds.get(vaultId);
   }
 
-  const promise = buildEntry(vaultId).finally(() => {
+  const promise = buildEntry(vaultId, token).finally(() => {
     pendingBuilds.delete(vaultId);
   });
 
@@ -224,6 +289,8 @@ async function warmUp() {
   const ids = Object.keys(config.vaults);
 
   for (const id of ids) {
+    // Skip netfs vaults: they require a token from the request context.
+    if (config.isNetfsVault(id)) continue;
     try {
       await buildEntry(id);
     } catch (e) {
@@ -240,7 +307,9 @@ router.get("/", async (req, res) => {
   }
 
   try {
-    const entry = await getOrBuild(vaultId);
+    const token = req.headers["x-token"] || "";
+    console.log(`[bootstrap] vault=${vaultId} token_len=${token.length} token_prefix=${token.slice(0,6)}`);
+    const entry = await getOrBuild(vaultId, token);
 
     if (!entry) {
       return res.status(404).json({ error: "Vault not found" });
