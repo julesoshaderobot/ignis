@@ -1,5 +1,10 @@
 const API_BASE = "/api/fs";
+const TOKEN_SS_KEY = "note_token";
+const TOKEN_LS_KEY = "note_token_remembered";
 
+function getToken() {
+  return sessionStorage.getItem(TOKEN_SS_KEY) || localStorage.getItem(TOKEN_LS_KEY) || "";
+}
 function normPath(p) {
   return (p || "").replace(/^\/+/, "");
 }
@@ -49,6 +54,10 @@ async function request(method, endpoint, params = {}, headers) {
     options.body = JSON.stringify({ vault: vaultId(), ...params });
   }
 
+  const token = getToken();
+  if (token) {
+    options.headers = { ...options.headers, "X-Token": token };
+  }
   if (headers) {
     options.headers = { ...options.headers, ...headers };
   }
@@ -92,6 +101,11 @@ function requestSync(method, endpoint, params = {}) {
 
   const xhr = new XMLHttpRequest();
   xhr.open(method, url.toString(), false); // synchronous
+
+  const token = getToken();
+  if (token) {
+    xhr.setRequestHeader("X-Token", token);
+  }
 
   if (method !== "GET" && method !== "DELETE") {
     xhr.setRequestHeader("Content-Type", "application/json");
