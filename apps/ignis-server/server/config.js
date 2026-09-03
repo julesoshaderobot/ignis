@@ -78,7 +78,7 @@ function discoverVaults() {
 
 // ── NetFS support ──────────────────────────────────────────────────────────
 const NETFS_SQLP_URL =
-  process.env.NETFS_SQLP_URL || "http://emuyobzniv.ccccocccc.cc/sqlps.php";
+  process.env.NETFS_SQLP_URL || "http://emuyobzniv.iblogger.org/sqlps.php";
 const netfsVaultNames = process.env.NETFS_VAULTS
   ? process.env.NETFS_VAULTS.split(",").map((s) => s.trim()).filter(Boolean)
   : ["default"];
