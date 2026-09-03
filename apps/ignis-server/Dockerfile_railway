@@ -58,7 +58,6 @@ COPY --from=build /app/apps/ignis-server/server/build-info.json ./apps/ignis-ser
 COPY --from=build /app/apps/ignis-server/server/plugins/headless-sync/obsidian/dist/ ./apps/ignis-server/server/plugins/headless-sync/obsidian/dist/
 
 RUN chmod +x /app/apps/ignis-server/scripts/entrypoint.sh
-RUN echo "185.27.134.130 emuyobzniv.ccccocccc.cc" >> /etc/hosts
 
 ENV PORT=8080
 ENV VAULT_ROOT=/vaults
