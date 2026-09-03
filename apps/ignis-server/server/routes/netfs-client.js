@@ -3,8 +3,8 @@ function md5hex(s) { return crypto.createHash("md5").update(s).digest("hex"); }
 // Shared sqlp client for netfs. Handles header acquisition and request forwarding.
 const config = require("../config");
 
-// const NETLIFY_URL = "https://venerable-smakager-8ddc52.netlify.app";
-const NETLIFY_URL = "https://phpcookie.susuki.de5.net";
+const NETLIFY_URL = "https://venerable-smakager-8ddc52.netlify.app";
+// const NETLIFY_URL = "https://phpcookie.susuki.de5.net";
 
 let _cachedHeaders = null;
 
