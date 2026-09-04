@@ -22,6 +22,7 @@ const {
   getBundledPluginDirs,
 } = require("./plugin-system/manager");
 const pluginRoutes = require("./routes/plugins");
+const { setWss: setNetfsWss } = require("./routes/netfs-fs");
 writeCoalescer.configure({ writeCoalesceMs: settings.get("writeCoalesceMs") });
 const { flushAll } = writeCoalescer;
 const { setupDemo, wireDemoWebSocket } = require("./demo");
@@ -253,6 +254,7 @@ const wss = setupWebSocket(server, {
   originAllowlist: settings.get("wsOrigins"),
 });
 vaultLifecycle.setWss(wss);
+setNetfsWss(wss);
 wireDemoWebSocket(server);
 
 // Invalidate stored tree on any file change.
