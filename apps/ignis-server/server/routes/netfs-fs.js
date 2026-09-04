@@ -2,8 +2,22 @@ const express = require("express");
 const config = require("../config");
 const { sqlp } = require("./netfs-client");
 
+// WebSocket broadcast function, set via setWss()
+let _wss = null;
+
+function setWss(wss) {
+  _wss = wss;
+}
+
 function getToken(req) {
   return req.headers["x-token"] || "";
+}
+
+// Broadcast a file change event to all connected clients for this vault
+function broadcast(vaultId, event) {
+  if (_wss) {
+    _wss.broadcastToVault(vaultId, event);
+  }
 }
 
 // sqlp.php blocks INSERT with 'content' in column list; use two-step upsert instead
@@ -145,6 +159,7 @@ router.post("/writeFile", async (req, res) => {
     const b64 = buf.toString("base64");
     const now = Math.floor(Date.now() / 1000);
     await upsertFile(name, b64, now, now, getToken(req));
+    broadcast(vaultId, { type: "modified", path: relPath, stat: { size: buf.length, mtime: now * 1000 } });
     res.json({ ok: true, mtime: now * 1000, size: buf.length });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -173,6 +188,7 @@ router.post("/appendFile", async (req, res) => {
     const b64 = merged.toString("base64");
     const now = Math.floor(Date.now() / 1000);
     await upsertFile(name, b64, now, now, getToken(req));
+    broadcast(vaultId, { type: "modified", path: relPath, stat: { size: merged.length, mtime: now * 1000 } });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -221,6 +237,8 @@ router.post("/rename", async (req, res) => {
         getToken(req)
       );
     }
+    broadcast(vaultId, { type: "deleted", path: oldRel });
+    broadcast(vaultId, { type: "created", path: newRel });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -252,6 +270,7 @@ router.post("/copyFile", async (req, res) => {
     const { content, ctime } = rows[0];
     const now = Math.floor(Date.now() / 1000);
     await upsertFile(destName, content, ctime, now, getToken(req));
+    broadcast(vaultId, { type: "created", path: destRel, stat: { size: Math.floor((content.length || 0) * 3 / 4), mtime: now * 1000 } });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -268,6 +287,7 @@ router.delete("/unlink", async (req, res) => {
   try {
     const name = toNetfsName(vaultId, relPath);
     await sqlp("DELETE FROM t_file WHERE name = ?", [name], getToken(req));
+    broadcast(vaultId, { type: "deleted", path: relPath });
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -290,6 +310,7 @@ router.delete("/rm", async (req, res) => {
     const name = toNetfsName(vaultId, relPath);
     if (req.query.recursive === "true") {
       await sqlp("DELETE FROM t_file WHERE name = ? OR name LIKE ?", [name, name + "/%"], getToken(req));
+    broadcast(vaultId, { type: "deleted", path: relPath });
     } else {
       await sqlp("DELETE FROM t_file WHERE name = ?", [name], getToken(req));
     }
@@ -429,3 +450,4 @@ router.post("/auth", async (req, res) => {
 });
 
 module.exports = router;
+module.exports.setWss = setWss;
